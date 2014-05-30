@@ -5,8 +5,8 @@ package dsaext;
  *
  * @version 2011-10-22_001
  * @author  Robert Altnoeder (r.altnoeder@gmx.net)
- * 
- * Copyright (C) 2011, Robert ALTNOEDER
+ *
+ * Copyright (C) 2011, 2014 Robert ALTNOEDER
  *
  * Redistribution and use in source and binary forms,
  * with or without modification, are permitted provided that
