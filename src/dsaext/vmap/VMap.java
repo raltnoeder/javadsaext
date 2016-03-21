@@ -1,12 +1,14 @@
 package dsaext.vmap;
 
+import dsaext.MapEntry;
+
 /**
  * Vector map
  *
- * @version 2014-05-30_001
+ * @version 2016-03-21_001
  * @author  R. Altnoeder (r.altnoeder@gmx.net)
  *
- * Copyright (C) 2011, 2014 Robert ALTNOEDER
+ * Copyright (C) 2011 - 2016 Robert ALTNOEDER
  *
  * Redistribution and use in source and binary forms,
  * with or without modification, are permitted provided that
@@ -31,7 +33,8 @@ package dsaext.vmap;
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-final public class VMap<K extends Comparable, V>
+final public class VMap<K extends Comparable<K>, V>
+    implements Iterable<MapEntry<K, V>>
 {
     private Node<K, V> head;
     private Node<K, V> tail;
@@ -46,9 +49,7 @@ final public class VMap<K extends Comparable, V>
 
     public void prepend(K key, V val)
     {
-        Node<K, V> insNode;
-
-        insNode = new Node(key, val);
+        Node<K, V> insNode = new Node(key, val);
 
         insNode.next = head;
         head         = insNode;
@@ -62,9 +63,7 @@ final public class VMap<K extends Comparable, V>
 
     public void append(K key, V val)
     {
-        Node<K, V> insNode;
-
-        insNode = new Node(key, val);
+        Node<K, V> insNode = new Node(key, val);
 
         if (tail == null)
         {
@@ -81,18 +80,12 @@ final public class VMap<K extends Comparable, V>
 
     public void insert(K key, V val, int idx)
     {
-        Node<K, V> insNode;
-        Node<K, V> prevNode;
-        int        pos;
-
-        insNode = new Node(key, val);
-
         if (idx < 0 || idx > size)
         {
-            throw new IndexOutOfBoundsException(
-                "VMap.insert(): invalid index " + idx);
+            throw new IndexOutOfBoundsException("VMap.insert(): invalid index " + idx);
         }
 
+        Node<K, V> insNode = new Node(key, val);
         if (idx == 0)
         {
             if (tail == null)
@@ -110,11 +103,10 @@ final public class VMap<K extends Comparable, V>
         }
         else
         {
-            for (pos = 1, prevNode = head;
-                 pos < idx;
-                 ++pos, prevNode = prevNode.next)
+            Node<K, V> prevNode = head;
+            for (long pos = 1; pos < idx; ++pos)
             {
-                /* intentional no-op block */
+                prevNode = prevNode.next;
             }
             insNode.next  = prevNode.next;
             prevNode.next = insNode;
@@ -124,8 +116,6 @@ final public class VMap<K extends Comparable, V>
 
     public void remove(K key)
     {
-        Node<K, V> prevNode;
-
         if (head != null)
         {
             if (head.key.equals(key))
@@ -143,9 +133,7 @@ final public class VMap<K extends Comparable, V>
             }
             else
             {
-                for (prevNode = head;
-                     prevNode.next != null;
-                     prevNode = prevNode.next)
+                for (Node<K, V> prevNode = head; prevNode.next != null; prevNode = prevNode.next)
                 {
                     if (prevNode.next.key.equals(key))
                     {
@@ -168,17 +156,16 @@ final public class VMap<K extends Comparable, V>
 
     public V get(K key)
     {
-        Node<K, V> node;
-
-        for (node = head; node != null; node = node.next)
+        V value = null;
+        for (Node<K, V> node = head; node != null; node = node.next)
         {
             if (node.key.equals(key))
             {
-                return node.val;
+                value = node.value;
+                break;
             }
         }
-
-        return null;
+        return value;
     }
 
     public int getSize()
@@ -186,76 +173,91 @@ final public class VMap<K extends Comparable, V>
         return size;
     }
 
+    public void clear()
+    {
+        head = null;
+        tail = null;
+        size = 0;
+    }
+
     @SuppressWarnings("unchecked")
     public K[] keysArray()
     {
-        Node<K, V> node;
-        K[]        values;
-        int        idx;
-
-        values = (K[]) new Object[size];
-        for (node = head, idx = 0; idx < size; node = node.next, ++idx)
+        K[] keys = null;
+        if (size <= Integer.MAX_VALUE)
         {
-            values[idx] = node.key;
+            keys = (K[]) new Object[size];
+            Node<K, V> node = head;
+            for (int index = 0; index < size; ++index)
+            {
+                keys[index] = node.key;
+            }
         }
-
-        return values;
+        return keys;
     }
 
     @SuppressWarnings("unchecked")
     public V[] valuesArray()
     {
-        Node<K, V> node;
-        V[]        values;
-        int        idx;
-
-        values = (V[]) new Object[size];
-        for (node = head, idx = 0; idx < size; node = node.next, ++idx)
+        V[] values = null;
+        if (size <= Integer.MAX_VALUE)
         {
-            values[idx] = node.val;
+            values = (V[]) new Object[size];
+            Node<K, V> node = head;
+            for (int index = 0; index < size; ++index)
+            {
+                values[index] = node.value;
+            }
         }
-
         return values;
     }
 
     public java.util.Iterator<K> keys()
     {
-        return new VMapKeysIterator();
+        return new VMapKeysIterator(this);
     }
 
     public java.util.Iterator<V> values()
     {
-        return new VMapValuesIterator();
+        return new VMapValuesIterator(this);
+    }
+
+    @Override
+    public java.util.Iterator<MapEntry<K, V>> iterator()
+    {
+        return new VMapEntriesIterator(this);
     }
 
     final private class VMapKeysIterator implements java.util.Iterator<K>
     {
-        private Node<K, V> nextNode;
+        private VMap<K, V> container;
+        private Node<K, V> current;
+        private Node<K, V> next;
 
-        protected VMapKeysIterator()
+        protected VMapKeysIterator(VMap<K, V> containerRef)
         {
-            nextNode = head;
+            container = containerRef;
+            current = null;
+            next = head;
         }
 
         @Override
         public boolean hasNext()
         {
-            return (nextNode != null);
+            return (next != null);
         }
 
         @Override
         public K next()
         {
-            Node<K, V> retNode;
-
-            if (nextNode != null)
+            K key = null;
+            current = next;
+            if (current != null)
             {
-                retNode  = nextNode;
-                nextNode = nextNode.next;
-                return retNode.key;
+                next = next.next;
+                key = current.key;
             }
-
-            return null;
+            return key;
         }
 
         @Override
@@ -267,32 +269,34 @@ final public class VMap<K extends Comparable, V>
 
     final private class VMapValuesIterator implements java.util.Iterator<V>
     {
-        private Node<K, V> nextNode;
+        private VMap<K, V> container;
+        private Node<K, V> current;
+        private Node<K, V> next;
 
-        protected VMapValuesIterator()
+        protected VMapValuesIterator(VMap<K, V> containerRef)
         {
-            nextNode = head;
+            container = containerRef;
+            current = null;
+            next = head;
         }
 
         @Override
         public boolean hasNext()
         {
-            return (nextNode != null);
+            return (next != null);
         }
 
         @Override
         public V next()
         {
-            Node<K, V> retNode;
-
-            if (nextNode != null)
+            V value = null;
+            current = next;
+            if (current != null)
             {
-                retNode  = nextNode;
-                nextNode = nextNode.next;
-                return retNode.val;
+                next = next.next;
+                value = current.value;
             }
-
-            return null;
+            return value;
         }
 
         @Override
@@ -302,17 +306,57 @@ final public class VMap<K extends Comparable, V>
         }
     }
 
-    final private static class Node<K extends Comparable, V>
+    final private class VMapEntriesIterator
+        implements java.util.Iterator<MapEntry<K, V>>
+    {
+        private VMap<K, V> container;
+        private Node<K, V> current;
+        private Node<K, V> next;
+
+        protected VMapEntriesIterator(VMap<K, V> containerRef)
+        {
+            container = containerRef;
+            current = null;
+            next = head;
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            return (next != null);
+        }
+
+        @Override
+        public MapEntry<K, V> next()
+        {
+            MapEntry<K, V> entry = null;
+            current = next;
+            if (current != null)
+            {
+                next = next.next;
+                entry = new MapEntry<>(current.key, current.value);
+            }
+            return entry;
+        }
+
+        @Override
+        public void remove()
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    final private static class Node<K extends Comparable<K>, V>
     {
         protected K          key;
-        protected V          val;
+        protected V          value;
         protected Node<K, V> next;
 
-        Node(K key, V val)
+        Node(K keyRef, V valueRef)
         {
-            this.key = key;
-            this.val = val;
-            next     = null;
+            this.key   = keyRef;
+            this.value = valueRef;
+            next       = null;
         }
     }
 }

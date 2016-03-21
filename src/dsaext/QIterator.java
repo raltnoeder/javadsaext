@@ -3,10 +3,10 @@ package dsaext;
 /**
  * Interface for accelerated iterator implementations
  *
- * @version 2011-10-22_001
+ * @version 2016-03-21_001
  * @author  Robert Altnoeder (r.altnoeder@gmx.net)
  *
- * Copyright (C) 2011, 2014 Robert ALTNOEDER
+ * Copyright (C) 2011 - 2016 Robert ALTNOEDER
  *
  * Redistribution and use in source and binary forms,
  * with or without modification, are permitted provided that

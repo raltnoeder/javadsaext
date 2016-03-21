@@ -3,10 +3,10 @@ package dsaext.vlist;
 /**
  * Vector list
  *
- * @version 2014-05-30_001
+ * @version 2016-03-21_001
  * @author  R. Altnoeder (r.altnoeder@gmx.net)
  *
- * Copyright (C) 2011, 2014 Robert ALTNOEDER
+ * Copyright (C) 2011 - 2016 Robert ALTNOEDER
  *
  * Redistribution and use in source and binary forms,
  * with or without modification, are permitted provided that
@@ -31,7 +31,7 @@ package dsaext.vlist;
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-final public class VList<V>
+final public class VList<V> implements Iterable<V>
 {
     private int     size;
     private Node<V> head;
@@ -46,9 +46,7 @@ final public class VList<V>
 
     public void prepend(V val)
     {
-        Node<V> insNode;
-
-        insNode = new Node(val);
+        Node<V> insNode = new Node(val);
 
         insNode.next = head;
         head         = insNode;
@@ -62,9 +60,7 @@ final public class VList<V>
 
     public void append(V val)
     {
-        Node<V> insNode;
-
-        insNode = new Node(val);
+        Node<V> insNode = new Node(val);
 
         if (tail == null)
         {
@@ -79,21 +75,15 @@ final public class VList<V>
         ++size;
     }
 
-    public void insert(V val, long idx) throws IndexOutOfBoundsException
+    public void insert(V value, long index) throws IndexOutOfBoundsException
     {
-        Node<V> insNode;
-        Node<V> prevNode;
-        long    pos;
-
-        insNode = new Node(val);
-
-        if (idx < 0 || idx > size)
+        if (index < 0 || index > size)
         {
-            throw new IndexOutOfBoundsException(
-                "VList.insert(): index " + idx);
+            throw new IndexOutOfBoundsException("VList.insert(): index " + index);
         }
 
-        if (idx == 0)
+        Node<V> insNode = new Node(value);
+        if (index == 0)
         {
             if (tail == null)
             {
@@ -103,18 +93,17 @@ final public class VList<V>
             head         = insNode;
         }
         else
-        if (idx == size)
+        if (index == size)
         {
             tail.next = insNode;
             tail      = insNode;
         }
         else
         {
-            for (pos = 1, prevNode = head;
-                 pos < idx;
-                 ++pos, prevNode = prevNode.next)
+            Node<V> prevNode = head;
+            for (long pos = 1; pos < index; ++pos)
             {
-                /* intentional no-op block */
+                prevNode = prevNode.next;
             }
             insNode.next  = prevNode.next;
             prevNode.next = insNode;
@@ -123,18 +112,14 @@ final public class VList<V>
         ++size;
     }
 
-    public void remove(long idx) throws IndexOutOfBoundsException
+    public void remove(long index) throws IndexOutOfBoundsException
     {
-        Node<V> prevNode;
-        long    pos;
-
-        if (head == null || idx < 0 || idx > (size - 1))
+        if (head == null || index < 0 || index > (size - 1))
         {
-            throw new IndexOutOfBoundsException(
-                "VList.remove(): invalid index " + idx);
+            throw new IndexOutOfBoundsException("VList.remove(): invalid index " + index);
         }
 
-        if (idx == 0)
+        if (index == 0)
         {
             if (head == tail)
             {
@@ -148,11 +133,10 @@ final public class VList<V>
         }
         else
         {
-            for (pos = 1, prevNode = head;
-                 pos < idx;
-                 ++pos, prevNode = prevNode.next)
+            Node<V> prevNode = head;
+            for (long pos = 1; pos < index; ++pos)
             {
-                /* intentional no-op block */
+                prevNode = prevNode.next;
             }
             if (prevNode.next != tail)
             {
@@ -173,55 +157,67 @@ final public class VList<V>
         return size;
     }
 
+    public void clear()
+    {
+        head = null;
+        tail = null;
+        size = 0;
+    }
+
     @SuppressWarnings("unchecked")
     public V[] toArray()
     {
-        Node<V> node;
-        V[]     values;
-        int     idx;
-
-        values = (V[]) new Object[size];
-        for (node = head, idx = 0; idx < size; node = node.next, ++idx)
+        V[] values = null;
+        if (size <= Integer.MAX_VALUE)
         {
-            values[idx] = node.val;
+            values = (V[]) new Object[size];
+            Node<V> node = head;
+            for (int index = 0; index < size; ++index)
+            {
+                values[index] = node.value;
+                node = node.next;
+            }
         }
 
         return values;
     }
 
+    @Override
     public java.util.Iterator<V> iterator()
     {
-        return new VListIterator();
+        return new VListIterator(this);
     }
 
     final private class VListIterator implements java.util.Iterator<V>
     {
-        private Node<V> nextNode;
+        private VList<V> container;
+        private Node<V> current;
+        private Node<V> next;
 
-        protected VListIterator()
+        protected VListIterator(VList<V> containerRef)
         {
-            nextNode = head;
+            container = containerRef;
+            current = null;
+            next = head;
         }
 
         @Override
         public boolean hasNext()
         {
-            return (nextNode != null);
+            return (next != null);
         }
 
         @Override
         public V next()
         {
-            Node<V> retNode;
-
-            if (nextNode != null)
+            V value = null;
+            current = next;
+            if (current != null)
             {
-                retNode  = nextNode;
-                nextNode = nextNode.next;
-                return retNode.val;
+                next = next.next;
+                value = current.value;
             }
-
-            return null;
+            return value;
         }
 
         @Override
@@ -233,13 +229,13 @@ final public class VList<V>
 
     final private static class Node<V>
     {
-        protected V       val;
+        protected V       value;
         protected Node<V> next;
 
-        Node(V val)
+        Node(V valueRef)
         {
-            this.val = val;
-            next     = null;
+            this.value = valueRef;
+            next       = null;
         }
     }
 }

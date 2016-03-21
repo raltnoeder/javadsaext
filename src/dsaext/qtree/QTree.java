@@ -1,14 +1,15 @@
 package dsaext.qtree;
 
 import dsaext.QIterator;
+import dsaext.MapEntry;
 
 /**
  * Quick balanced binary search tree
  *
- * @version 2014-05-30_001
+ * @version 2016-03-21_001
  * @author  Robert Altnoeder (r.altnoeder@gmx.net)
  *
- * Copyright (C) 2011, 2014 Robert ALTNOEDER
+ * Copyright (C) 2011 - 2016 Robert ALTNOEDER
  *
  * Redistribution and use in source and binary forms,
  * with or without modification, are permitted provided that
@@ -34,13 +35,17 @@ import dsaext.QIterator;
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 final public class QTree<K extends Comparable<K>, V>
+    implements Iterable<MapEntry<K, V>>
 {
     private Node<K, V> root;
     private long size;
 
-    final private static int STATE_ENTER_L = 0;
-    final private static int STATE_ENTER_H = 1;
-    final private static int STATE_LEAVE   = 2;
+    private enum Direction
+    {
+        NONE,
+        LESS,
+        GREATER
+    };
 
     public QTree()
     {
@@ -52,7 +57,7 @@ final public class QTree<K extends Comparable<K>, V>
     {
         /* key and value objects */
         protected K key;
-        protected V val;
+        protected V value;
 
         /* references to parent and child nodes */
         protected Node<K, V> parent;
@@ -62,10 +67,10 @@ final public class QTree<K extends Comparable<K>, V>
         /* balance number */
         protected int balance;
 
-        protected Node(K key, V val)
+        protected Node(K keyRef, V valRef)
         {
-            this.key = key;
-            this.val = val;
+            key   = keyRef;
+            value = valRef;
 
             balance  = 0;
 
@@ -78,53 +83,54 @@ final public class QTree<K extends Comparable<K>, V>
     final private static class QTreeEnumeration<T>
         implements java.util.Enumeration<T>
     {
-        private QTreeEnumerationNode<T> node;
-        private QTreeEnumerationNode<T> retNode;
+        private QTreeEnumerationNode<T> next;
+        private QTreeEnumerationNode<T> current;
 
         QTreeEnumeration(QTreeEnumerationNode<T> root)
         {
-            node = root;
+            next = root;
         }
 
         @Override
         public boolean hasMoreElements()
         {
-            return (node != null);
+            return (next != null);
         }
 
         @Override
         public T nextElement()
         {
-            retNode = node;
-            node    = node.next;
-            if (retNode != null)
+            T enumVal = null;
+
+            current = next;
+            next    = next.next;
+            if (current != null)
             {
-                return retNode.enumVal;
+                enumVal = current.enumVal;
             }
-            else
-            {
-                return null;
-            }
+
+            return enumVal;
         }
     }
 
     final private class QTreeValuesIterator implements QIterator<V>
     {
-        /* saved next node */
+        private QTree<K, V> container;
+        private Node<K, V> current;
+        // saved next node
         private Node<K, V> next;
 
-        protected QTreeValuesIterator()
+        protected QTreeValuesIterator(QTree<K, V> containerRef)
         {
-            if (root != null)
+            container = containerRef;
+            current = null;
+            next = root;
+            if (next != null)
             {
-                for (next = root; next.less != null; next = next.less)
+                while (next.less != null)
                 {
-                    /* intentional no-op block */
+                    next = next.less;
                 }
-            }
-            else
-            {
-                next = null;
             }
         }
 
@@ -143,71 +149,76 @@ final public class QTree<K extends Comparable<K>, V>
         @Override
         final public V next()
         {
-            Node<K, V> retNode;
-            Node<K, V> nextNode;
+            V value = null;
+            current = next;
 
-            retNode = next;
-
-            if (retNode != null)
+            if (current != null)
             {
-                nextNode = retNode;
-                if (nextNode.greater != null)
+                if (next.greater != null)
                 {
-                    for (nextNode = nextNode.greater;
-                         nextNode.less != null;
-                         nextNode = nextNode.less)
+                    for (next = next.greater;
+                         next.less != null;
+                         next = next.less)
                     {
-                        /* intentional no-op block */
+                        // intentional no-op block
                     }
                 }
                 else
                 {
                     do
                     {
-                        if (nextNode.parent != null)
+                        if (next.parent != null)
                         {
-                            if (nextNode.parent.less == nextNode)
+                            if (next.parent.less == next)
                             {
-                                nextNode = nextNode.parent;
+                                next = next.parent;
                                 break;
                             }
                         }
-                        nextNode = nextNode.parent;
+                        next = next.parent;
                     }
-                    while (nextNode != null);
+                    while (next != null);
                 }
-                next = nextNode;
 
-                return retNode.val;
+                value = current.value;
             }
 
-            return null;
+            return value;
         }
 
         @Override
         final public void remove()
         {
-            throw new UnsupportedOperationException();
+            if (current != null)
+            {
+                container.remove(current.key);
+                current = null;
+            }
+            else
+            {
+                throw new IllegalStateException();
+            }
         }
     }
 
     final private class QTreeKeysIterator implements QIterator<K>
     {
-        /* saved next node */
+        private QTree<K, V> container;
+        private Node<K, V> current;
+        // saved next node
         private Node<K, V> next;
 
-        protected QTreeKeysIterator()
+        protected QTreeKeysIterator(QTree<K, V> containerRef)
         {
-            if (root != null)
+            container = containerRef;
+            current = null;
+            next = root;
+            if (next != null)
             {
-                for (next = root; next.less != null; next = next.less)
+                while (next.less != null)
                 {
-                    /* intentional no-op block */
+                    next = next.less;
                 }
-            }
-            else
-            {
-                next = null;
             }
         }
 
@@ -226,78 +237,167 @@ final public class QTree<K extends Comparable<K>, V>
         @Override
         final public K next()
         {
-            Node<K, V> retNode;
-            Node<K, V> nextNode;
+            K key = null;
+            current = next;
 
-            retNode = next;
-
-            if (retNode != null)
+            if (current != null)
             {
-                nextNode = retNode;
-                if (nextNode.greater != null)
+                if (next.greater != null)
                 {
-                    for (nextNode = nextNode.greater;
-                         nextNode.less != null;
-                         nextNode = nextNode.less)
+                    for (next = next.greater;
+                         next.less != null;
+                         next = next.less)
                     {
-                        /* intentional no-op block */
+                        // intentional no-op block
                     }
                 }
                 else
                 {
                     do
                     {
-                        if (nextNode.parent != null)
+                        if (next.parent != null)
                         {
-                            if (nextNode.parent.less == nextNode)
+                            if (next.parent.less == next)
                             {
-                                nextNode = nextNode.parent;
+                                next = next.parent;
                                 break;
                             }
                         }
-                        nextNode = nextNode.parent;
+                        next = next.parent;
                     }
-                    while (nextNode != null);
+                    while (next != null);
                 }
-                next = nextNode;
 
-                return retNode.key;
+                key = current.key;
             }
 
-            return null;
+            return key;
         }
 
         final public V getValue()
         {
-            if (next != null)
+            V value = null;
+            if (current != null)
             {
-                return next.val;
+                value = current.value;
             }
-
-            return null;
+            return value;
         }
 
         @Override
         final public void remove()
         {
-            throw new UnsupportedOperationException();
+            if (current != null)
+            {
+                container.remove(current.key);
+                current = null;
+            }
+            else
+            {
+                throw new IllegalStateException();
+            }
+        }
+    }
+
+    final private class QTreeEntriesIterator
+        implements QIterator<MapEntry<K, V>>
+    {
+        private QTree<K, V> container;
+        private Node<K, V> current;
+        // saved next node
+        private Node<K, V> next;
+
+        protected QTreeEntriesIterator(QTree<K, V> containerRef)
+        {
+            container = containerRef;
+            current = null;
+            next = root;
+            if (next != null)
+            {
+                while (next.less != null)
+                {
+                    next = next.less;
+                }
+            }
+        }
+
+        @Override
+        final public long getSize()
+        {
+            return size;
+        }
+
+        @Override
+        final public boolean hasNext()
+        {
+            return (next != null);
+        }
+
+        @Override
+        final public MapEntry<K, V> next()
+        {
+            current = next;
+
+            MapEntry<K, V> entry = null;
+
+            if (current != null)
+            {
+                if (next.greater != null)
+                {
+                    for (next = next.greater;
+                         next.less != null;
+                         next = next.less)
+                    {
+                        // intentional no-op block
+                    }
+                }
+                else
+                {
+                    do
+                    {
+                        if (next.parent != null)
+                        {
+                            if (next.parent.less == next)
+                            {
+                                next = next.parent;
+                                break;
+                            }
+                        }
+                        next = next.parent;
+                    }
+                    while (next != null);
+                }
+
+                entry = new MapEntry(current.key, current.value);
+            }
+
+            return entry;
+        }
+
+        @Override
+        final public void remove()
+        {
+            if (current != null)
+            {
+                container.remove(current.key);
+                current = null;
+            }
+            else
+            {
+                throw new IllegalStateException();
+            }
         }
     }
 
     final private static class QTreeEnumerationNode<T>
     {
-        QTreeEnumerationNode<T> next;
-
-        T enumVal;
+        QTreeEnumerationNode<T> next = null;
+        T enumVal = null;
     }
 
     final public void insert(K key, V val)
     {
-        Node<K, V> insNode;
-        Node<K, V> parentNode;
-        int        rc;
-
-        insNode = new Node<K, V>(key, val);
+        Node<K, V> insNode = new Node<K, V>(key, val);
 
         if (root == null)
         {
@@ -306,11 +406,11 @@ final public class QTree<K extends Comparable<K>, V>
         }
         else
         {
-            parentNode = root;
-            for (;;)
+            Node<K, V> parentNode = root;
+            while (true)
             {
-               rc = insNode.key.compareTo(parentNode.key);
-               if (rc < 0)
+               int cmpRc = insNode.key.compareTo(parentNode.key);
+               if (cmpRc < 0)
                {
                    if (parentNode.less == null)
                    {
@@ -325,7 +425,7 @@ final public class QTree<K extends Comparable<K>, V>
                    }
                }
                else
-               if (rc > 0)
+               if (cmpRc > 0)
                {
                    if (parentNode.greater == null)
                    {
@@ -341,14 +441,14 @@ final public class QTree<K extends Comparable<K>, V>
                }
                else
                {
-                   parentNode.key = insNode.key;
-                   parentNode.val = insNode.val;
-                   return;
+                   parentNode.key   = insNode.key;
+                   parentNode.value = insNode.value;
+                   parentNode = null;
                }
             }
 
             /* update balance and perform rotations */
-            do
+            while (parentNode != null)
             {
                 if (parentNode.less == insNode)
                 {
@@ -549,227 +649,243 @@ final public class QTree<K extends Comparable<K>, V>
                 insNode    = parentNode;
                 parentNode = parentNode.parent;
             }
-            while (parentNode != null);
         }
     }
 
     final public V get(K key)
     {
-        Node<K, V> node;
-        int rc;
+        V value = null;
 
-        if (root == null)
+        Node<K, V> node = root;
+        while (node != null)
         {
-            return null;
-        }
-        else
-        {
-            node = root;
-            while (node != null)
+            int cmpRc = key.compareTo(node.key);
+            if (cmpRc < 0)
             {
-               rc = key.compareTo(node.key);
-               if (rc < 0)
-               {
-                   node = node.less;
-               }
-               else
-               if (rc > 0)
-               {
-                   node = node.greater;
-               }
-               else
-               {
-                   return node.val;
-               }
+                node = node.less;
+            }
+            else
+            if (cmpRc > 0)
+            {
+                node = node.greater;
+            }
+            else
+            {
+                value = node.value;
+                break;
             }
         }
 
-        return null;
+        return value;
     }
 
     final public boolean contains(K key)
     {
-        Node<K, V> crt;
-        int  rc;
+        boolean found = false;
 
-        crt = root;
-        while (crt != null)
+        Node<K, V> node = root;
+        while (node != null)
         {
-            rc = key.compareTo(crt.key);
-            if (rc == 0)
+            int cmpRc = key.compareTo(node.key);
+            if (cmpRc < 0)
             {
-                return true;
+                node = node.less;
             }
             else
-            if (rc < 0)
+            if (cmpRc > 0)
             {
-                crt = crt.less;
+                node = node.greater;
             }
             else
             {
-                crt = crt.greater;
+                found = true;
+                break;
             }
         }
 
-        return false;
+        return found;
     }
 
     final public void remove(K key)
     {
-        Node<K, V> rmNode;
-        Node<K, V> repNode;
-        Node<K, V> rotNode;
-        int        dir;
-        int        rc;
-
-        if (root != null)
+        Node<K, V> rotNode = null;
+        Node<K, V> rmNode = root;
+        while (rmNode != null)
         {
-            /* find the node to be deleted */
-            rmNode = root;
-            for (;;)
+            int cmpRc = key.compareTo(rmNode.key);
+            if (cmpRc < 0)
             {
-                rc = key.compareTo(rmNode.key);
-                if (rc < 0)
-                {
-                    rmNode = rmNode.less;
-                }
-                else
-                if (rc > 0)
-                {
-                    rmNode = rmNode.greater;
-                }
-                else
-                {
-                    break;
-                }
-
-                if (rmNode == null)
-                {
-                    return;
-                }
+                rmNode = rmNode.less;
             }
+            else
+            if (cmpRc > 0)
+            {
+                rmNode = rmNode.greater;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        Direction dir = Direction.NONE;
+        if (rmNode != null)
+        {
             --size;
 
             if (rmNode.less == null && rmNode.greater == null)
             {
-                /* leaf node */
                 if (root == rmNode)
                 {
-                    /* root node leaf */
-                    root    = null;
-                    rotNode = null;
-                    dir     = 0;
+                    // root node leaf
+                    root = null;
                 }
                 else
                 {
-                    /* non-root node leaf */
+                    // non-root node leaf
                     rotNode = rmNode.parent;
+
                     if (rotNode.less == rmNode)
                     {
-                        /* node to remove is in the left subtree *
-                         * of its parent                         */
+                        // node to remove is in the left subtree
+                        // of its parent
 
-                        /* save direction */
-                        dir = -1;
+                        // save direction
+                        dir = Direction.LESS;
                         rotNode.less = null;
                     }
                     else
                     {
-                        /* node to remove is in the right subtree *
-                         * of its parent                          */
-
-                        /* save direction */
-                        dir = 1;
+                        dir = Direction.GREATER;
                         rotNode.greater = null;
                     }
                 }
             }
             else
             {
-                /* not a leaf node, removal by replacement                       *
-                 * at least one child, or a child and a subtree, or two subtrees *
-                 * find replacement node                                         */
+                Node<K, V> replaceNode = null;
+                // not a leaf node, removal by replacement
+                // at least one child, or a child and a subtree, or two subtrees
+                // find replacement node
                 if (rmNode.balance == -1)
                 {
-                    for (repNode = rmNode.less; repNode.greater != null; repNode = repNode.greater)
+                    for (replaceNode = rmNode.less;
+                         replaceNode.greater != null;
+                         replaceNode = replaceNode.greater)
                     {
-                        /* intentional no-op block */
+                        // intentional no-op block
                     }
                 }
                 else
                 {
-                    for (repNode = rmNode.greater; repNode.less != null; repNode = repNode.less)
+                    for (replaceNode = rmNode.greater;
+                         replaceNode.less != null;
+                         replaceNode = replaceNode.less)
                     {
-                        /* intentional no-op block */
+                        // intentional no-op block
                     }
                 }
-                rotNode = repNode.parent;
-                if (rotNode.less == repNode)
+                rotNode = replaceNode.parent;
+
+                if (rotNode.less == replaceNode)
                 {
-                    /* node to remove is in the left subtree *
-                     * of its parent                         */
+                    // node to remove is in the left subtree
+                    // of its parent
 
-                    /* save direction */
-                    dir = -1;
+                    // save direction
+                    dir = Direction.LESS;
 
-                    if (repNode.less != null)
+                    if (replaceNode.less != null)
                     {
-                        /* replace node by its left child */
-                        rotNode.less = repNode.less;
-                        repNode.less.parent = rotNode;
+                        // replace node by its left child
+                        rotNode.less = replaceNode.less;
+                        replaceNode.less.parent = rotNode;
                     }
                     else
-                    if (repNode.greater != null)
+                    if (replaceNode.greater != null)
                     {
-                        /* replace node by its right child */
-                        rotNode.less = repNode.greater;
-                        repNode.greater.parent = rotNode;
+                        // replace node by its right child
+                        rotNode.less = replaceNode.greater;
+                        replaceNode.greater.parent = rotNode;
                     }
                     else
                     {
-                        /* non-root leaf node */
+                        // non-root leaf node
                         rotNode.less = null;
                     }
                 }
                 else
                 {
-                    /* node to remove is in the right subtree *
-                     * of its parent                          */
+                    // node to remove is in the right subtree
+                    // of its parent
 
-                    /* save direction */
-                    dir = 1;
+                    // save direction
+                    dir = Direction.GREATER;
 
-                    if (repNode.less != null)
+                    if (replaceNode.less != null)
                     {
-                        /* replace node by its left child */
-                        rotNode.greater = repNode.less;
-                        repNode.less.parent = rotNode;
+                        // replace node by its left child
+                        rotNode.greater = replaceNode.less;
+                        replaceNode.less.parent = rotNode;
                     }
                     else
-                    if (repNode.greater != null)
+                    if (replaceNode.greater != null)
                     {
-                        /* replace node by its right child */
-                        rotNode.greater = repNode.greater;
-                        repNode.greater.parent = rotNode;
+                        // replace node by its right child
+                        rotNode.greater = replaceNode.greater;
+                        replaceNode.greater.parent = rotNode;
                     }
                     else
                     {
-                        /* non-root leaf node */
+                        // non-root leaf node
                         rotNode.greater = null;
                     }
                 }
 
-                rmNode.key = repNode.key;
-                rmNode.val = repNode.val;
+                // replace rmNode with replaceNode
+                if (rmNode.parent == null)
+                {
+                    // Node to be removed is the root node
+                    root = replaceNode;
+                }
+                else
+                {
+                    if (rmNode.parent.less == rmNode)
+                    {
+                        rmNode.parent.less = replaceNode;
+                    }
+                    else
+                    {
+                        rmNode.parent.greater = replaceNode;
+                    }
+                }
+                if (rmNode.less != null)
+                {
+                    rmNode.less.parent = replaceNode;
+                }
+                if (rmNode.greater != null)
+                {
+                    rmNode.greater.parent = replaceNode;
+                }
+                replaceNode.parent  = rmNode.parent;
+                replaceNode.less    = rmNode.less;
+                replaceNode.greater = rmNode.greater;
+                replaceNode.balance = rmNode.balance;
+
+                if (rotNode == rmNode)
+                {
+                    rotNode = replaceNode;
+                }
             }
 
-            /* update balance and perform rotations */
-            for (; rotNode != null; rotNode = rotNode.parent)
+            // update balance and perform rotations
+            while (rotNode != null)
             {
-                if (dir < 0)
+                if (dir == Direction.LESS)
                 {
-                    /* node was removed from left subtree */
-                    if (++rotNode.balance == 1)
+                    // node was removed from left subtree
+                    ++rotNode.balance;
+                    if (rotNode.balance == 1)
                     {
                         break;
                     }
@@ -777,7 +893,8 @@ final public class QTree<K extends Comparable<K>, V>
                 else
                 {
                     /* node was removed from right subtree */
-                    if (--rotNode.balance == -1)
+                    --rotNode.balance;
+                    if (rotNode.balance == -1)
                     {
                         break;
                     }
@@ -787,89 +904,89 @@ final public class QTree<K extends Comparable<K>, V>
                 {
                     if (rotNode.parent.less == rotNode)
                     {
-                        dir = -1;
+                        dir = Direction.LESS;
                     }
                     else
                     {
-                        dir = 1;
+                        dir = Direction.GREATER;
                     }
                 }
 
-                /* update balance and perform rotations */
+                // update balance and perform rotations
                 if (rotNode.balance == -2)
                 {
-                    repNode = rotNode.less;
-                    /* 0 or -1 */
-                    if (repNode.balance <= 0)
+                    Node<K, V> subNode = rotNode.less;
+                    // 0 or -1
+                    if (subNode.balance <= 0)
                     {
-                        /* rotate R */
-                        repNode.parent = rotNode.parent;
+                        // rotate R
+                        subNode.parent = rotNode.parent;
                         if (rotNode.parent != null)
                         {
                             if (rotNode.parent.less == rotNode)
                             {
-                                rotNode.parent.less = repNode;
+                                rotNode.parent.less = subNode;
                             }
                             else
                             {
-                                rotNode.parent.greater = repNode;
+                                rotNode.parent.greater = subNode;
                             }
                         }
                         else
                         {
-                            root = repNode;
+                            root = subNode;
                         }
 
-                        rotNode.less = repNode.greater;
-                        if (repNode.greater != null)
+                        rotNode.less = subNode.greater;
+                        if (subNode.greater != null)
                         {
-                            repNode.greater.parent = rotNode;
+                            subNode.greater.parent = rotNode;
                         }
 
-                        repNode.greater = rotNode;
-                        rotNode.parent  = repNode;
+                        subNode.greater = rotNode;
+                        rotNode.parent  = subNode;
 
-                        if (repNode.balance == 0)
+                        if (subNode.balance == 0)
                         {
                             rotNode.balance = -1;
-                            repNode.balance = 1;
+                            subNode.balance = 1;
                             break;
                         }
                         else
                         {
                             rotNode.balance = 0;
-                            repNode.balance = 0;
+                            subNode.balance = 0;
                         }
                     }
                     else
                     {
-                        /* rotate LR */
-                        if (repNode.greater.balance == -1)
+                        // rotate LR
+                        if (subNode.greater.balance == -1)
                         {
-                            repNode.balance = 0;
+                            subNode.balance = 0;
                             rotNode.balance = 1;
                         }
                         else
-                        if (repNode.greater.balance == 1)
+                        if (subNode.greater.balance == 1)
                         {
-                            repNode.balance = -1;
+                            subNode.balance = -1;
                             rotNode.balance = 0;
                         }
                         else
                         {
-                            repNode.balance = 0;
+                            subNode.balance = 0;
                             rotNode.balance = 0;
                         }
-                        repNode.greater.balance = 0;
+                        subNode.greater.balance = 0;
 
-                        repNode.parent        = repNode.greater;
-                        repNode.greater       = repNode.greater.less;
-                        repNode.parent.less   = repNode;
-                        rotNode.less          = repNode.parent.greater;
-                        repNode.parent.parent = rotNode.parent;
-                        if (repNode.greater != null)
+                        subNode.parent        = subNode.greater;
+                        subNode.greater       = subNode.greater.less;
+                        subNode.parent.less   = subNode;
+                        rotNode.less          = subNode.parent.greater;
+                        subNode.parent.parent = rotNode.parent;
+                        if (subNode.greater != null)
                         {
-                            repNode.greater.parent = repNode;
+                            subNode.greater.parent = subNode;
                         }
                         if (rotNode.less != null)
                         {
@@ -880,98 +997,98 @@ final public class QTree<K extends Comparable<K>, V>
                         {
                             if (rotNode.parent.less == rotNode)
                             {
-                                rotNode.parent.less = repNode.parent;
+                                rotNode.parent.less = subNode.parent;
                             }
                             else
                             {
-                                rotNode.parent.greater = repNode.parent;
+                                rotNode.parent.greater = subNode.parent;
                             }
                         }
                         else
                         {
-                            root = repNode.parent;
+                            root = subNode.parent;
                         }
 
-                        rotNode.parent         = repNode.parent;
-                        repNode.parent.greater = rotNode;
+                        rotNode.parent         = subNode.parent;
+                        subNode.parent.greater = rotNode;
                     }
                     rotNode = rotNode.parent;
-                    /* end of R / LR rotations */
+                    // end of R / LR rotations
                 }
                 else
                 if (rotNode.balance == 2)
                 {
-                    repNode = rotNode.greater;
-                    /* 0 or 1 */
-                    if (repNode.balance >= 0)
+                    Node<K, V> subNode = rotNode.greater;
+                    // 0 or 1
+                    if (subNode.balance >= 0)
                     {
-                        /* rotate L */
-                        repNode.parent = rotNode.parent;
+                        // rotate L
+                        subNode.parent = rotNode.parent;
                         if (rotNode.parent != null)
                         {
                             if (rotNode.parent.less == rotNode)
                             {
-                                rotNode.parent.less = repNode;
+                                rotNode.parent.less = subNode;
                             }
                             else
                             {
-                                rotNode.parent.greater = repNode;
+                                rotNode.parent.greater = subNode;
                             }
                         }
                         else
                         {
-                            root = repNode;
+                            root = subNode;
                         }
 
-                        rotNode.greater = repNode.less;
-                        if (repNode.less != null)
+                        rotNode.greater = subNode.less;
+                        if (subNode.less != null)
                         {
-                            repNode.less.parent = rotNode;
+                            subNode.less.parent = rotNode;
                         }
 
-                        repNode.less   = rotNode;
-                        rotNode.parent = repNode;
-                        if (repNode.balance == 0)
+                        subNode.less   = rotNode;
+                        rotNode.parent = subNode;
+                        if (subNode.balance == 0)
                         {
                             rotNode.balance = 1;
-                            repNode.balance = -1;
+                            subNode.balance = -1;
                             break;
                         }
                         else
                         {
                             rotNode.balance = 0;
-                            repNode.balance = 0;
+                            subNode.balance = 0;
                         }
                     }
                     else
                     {
-                        /* rotate RL */
-                        if (repNode.less.balance == -1)
+                        // rotate RL
+                        if (subNode.less.balance == -1)
                         {
-                            repNode.balance = 1;
+                            subNode.balance = 1;
                             rotNode.balance = 0;
                         }
                         else
-                        if (repNode.less.balance == 1)
+                        if (subNode.less.balance == 1)
                         {
-                            repNode.balance = 0;
+                            subNode.balance = 0;
                             rotNode.balance = -1;
                         }
                         else
                         {
-                            repNode.balance = 0;
+                            subNode.balance = 0;
                             rotNode.balance = 0;
                         }
-                        repNode.less.balance = 0;
+                        subNode.less.balance = 0;
 
-                        repNode.parent         = repNode.less;
-                        repNode.less           = repNode.less.greater;
-                        repNode.parent.greater = repNode;
-                        rotNode.greater        = repNode.parent.less;
-                        repNode.parent.parent  = rotNode.parent;
-                        if (repNode.less != null)
+                        subNode.parent         = subNode.less;
+                        subNode.less           = subNode.less.greater;
+                        subNode.parent.greater = subNode;
+                        rotNode.greater        = subNode.parent.less;
+                        subNode.parent.parent  = rotNode.parent;
+                        if (subNode.less != null)
                         {
-                            repNode.less.parent = repNode;
+                            subNode.less.parent = subNode;
                         }
                         if (rotNode.greater != null)
                         {
@@ -982,25 +1099,26 @@ final public class QTree<K extends Comparable<K>, V>
                         {
                             if (rotNode.parent.less == rotNode)
                             {
-                                rotNode.parent.less = repNode.parent;
+                                rotNode.parent.less = subNode.parent;
                             }
                             else
                             {
-                                rotNode.parent.greater = repNode.parent;
+                                rotNode.parent.greater = subNode.parent;
                             }
                         }
                         else
                         {
-                            root = repNode.parent;
+                            root = subNode.parent;
                         }
 
-                        rotNode.parent      = repNode.parent;
-                        repNode.parent.less = rotNode;
+                        rotNode.parent      = subNode.parent;
+                        subNode.parent.less = rotNode;
                     }
                     rotNode = rotNode.parent;
-                    /* end of L / RL rotations */
+                    // end of L / RL rotations
                 }
-            } /* end update */
+                rotNode = rotNode.parent;
+            }
         }
     }
 
@@ -1017,22 +1135,20 @@ final public class QTree<K extends Comparable<K>, V>
 
     final public java.util.Enumeration<V> valuesEn()
     {
-        java.util.Enumeration<V> valsEnum;
-        QTreeEnumerationNode<V>  valsEnumRoot;
-        QTreeEnumerationNode<V>  enumNode;
-
-        Node<K, V> node;
+        QTreeEnumerationNode<V> valsEnumRoot = null;
 
         if (root != null)
         {
-            for (node = root; node.less != null; node = node.less)
+            Node<K, V> node = root;
+            while (node != null)
             {
-                /* intentional no-op block */
+                node = node.less;
             }
             valsEnumRoot = new QTreeEnumerationNode();
-            valsEnumRoot.enumVal = node.val;
+            valsEnumRoot.enumVal = node.value;
 
-            for (enumNode = valsEnumRoot; node != null;)
+            QTreeEnumerationNode<V> enumNode = valsEnumRoot;
+            while (node != null)
             {
                 if (node.greater != null)
                 {
@@ -1040,10 +1156,10 @@ final public class QTree<K extends Comparable<K>, V>
                          node.less != null;
                          node = node.less)
                     {
-                        /* intentional no-op block */
+                        // intentional no-op block
                     }
                     enumNode.next    = new QTreeEnumerationNode();
-                    enumNode.enumVal = node.val;
+                    enumNode.enumVal = node.value;
                     enumNode         = enumNode.next;
                 }
                 else
@@ -1056,7 +1172,7 @@ final public class QTree<K extends Comparable<K>, V>
                             {
                                 node = node.parent;
                                 enumNode.next    = new QTreeEnumerationNode();
-                                enumNode.enumVal = node.val;
+                                enumNode.enumVal = node.value;
                                 enumNode         = enumNode.next;
                                 break;
                             }
@@ -1073,29 +1189,27 @@ final public class QTree<K extends Comparable<K>, V>
             valsEnumRoot = null;
         }
 
-        valsEnum = new QTreeEnumeration(valsEnumRoot);
+        java.util.Enumeration<V> valsEnum = new QTreeEnumeration(valsEnumRoot);
 
         return valsEnum;
     }
 
     final public java.util.Enumeration<K> keysEn()
     {
-        java.util.Enumeration<K> keysEnum;
-        QTreeEnumerationNode<K>  keysEnumRoot;
-        QTreeEnumerationNode<K>  enumNode;
-
-        Node<K, V> node;
+        QTreeEnumerationNode<K> keysEnumRoot = null;
 
         if (root != null)
         {
-            for (node = root; node.less != null; node = node.less)
+            Node<K, V> node = root;
+            while (node.less != null)
             {
-                /* intentional no-op block */
+                node = node.less;
             }
             keysEnumRoot = new QTreeEnumerationNode();
             keysEnumRoot.enumVal = node.key;
 
-            for (enumNode = keysEnumRoot; node != null;)
+            QTreeEnumerationNode<K> enumNode = keysEnumRoot;
+            while (node != null)
             {
                 if (node.greater != null)
                 {
@@ -1103,7 +1217,7 @@ final public class QTree<K extends Comparable<K>, V>
                          node.less != null;
                          node = node.less)
                     {
-                        /* intentional no-op block */
+                        // intentional no-op block
                     }
                     enumNode.next    = new QTreeEnumerationNode();
                     enumNode.enumVal = node.key;
@@ -1131,33 +1245,32 @@ final public class QTree<K extends Comparable<K>, V>
             }
             enumNode.next = null;
         }
-        else
-        {
-            keysEnumRoot = null;
-        }
 
-        keysEnum = new QTreeEnumeration(keysEnumRoot);
+        java.util.Enumeration<K> keysEnum = new QTreeEnumeration(keysEnumRoot);
 
         return keysEnum;
     }
 
     final public QIterator<K> keys()
     {
-        return new QTreeKeysIterator();
+        return new QTreeKeysIterator(this);
     }
 
     final public QIterator<V> values()
     {
-        return new QTreeValuesIterator();
+        return new QTreeValuesIterator(this);
+    }
+
+    @Override
+    final public QIterator<MapEntry<K, V>> iterator()
+    {
+        return new QTreeEntriesIterator(this);
     }
 
     @SuppressWarnings("unchecked")
     final public K[] keysArray()
     {
-        K[] keys;
-        int idx;
-
-        Node<K, V> node;
+        K[] keys = null;
 
         if (size <= (long) Integer.MAX_VALUE)
         {
@@ -1165,21 +1278,24 @@ final public class QTree<K extends Comparable<K>, V>
 
             if (root != null)
             {
-                for (node = root; node.less != null; node = node.less)
+                Node<K, V> node = root;
+                while (node.less != null)
                 {
-                    /* intentional no-op block */
+                    node = node.less;
                 }
 
-                for (idx = 0; node != null;)
+                int index = 0;
+                while (node != null)
                 {
-                    keys[idx++] = node.key;
+                    keys[index] = node.key;
+                    ++index;
                     if (node.greater != null)
                     {
                         for (node = node.greater;
                              node.less != null;
                              node = node.less)
                         {
-                            /* intentional no-op block */
+                            // intentional no-op block
                         }
                     }
                     else
@@ -1212,10 +1328,7 @@ final public class QTree<K extends Comparable<K>, V>
     @SuppressWarnings("unchecked")
     final public V[] valuesArray()
     {
-        V[] vals;
-        int idx;
-
-        Node<K, V> node;
+        V[] vals = null;
 
         if (size <= (long) Integer.MAX_VALUE)
         {
@@ -1223,21 +1336,24 @@ final public class QTree<K extends Comparable<K>, V>
 
             if (root != null)
             {
-                for (node = root; node.less != null; node = node.less)
+                Node<K, V> node = root;
+                while (node.less != null)
                 {
-                    /* intentional no-op block */
+                    node = node.less;
                 }
 
-                for (idx = 0; node != null;)
+                int index = 0;
+                while (node != null)
                 {
-                    vals[idx++] = node.val;
+                    vals[index] = node.value;
+                    ++index;
                     if (node.greater != null)
                     {
                         for (node = node.greater;
                              node.less != null;
                              node = node.less)
                         {
-                            /* intentional no-op block */
+                            // intentional no-op block
                         }
                     }
                     else
@@ -1259,289 +1375,7 @@ final public class QTree<K extends Comparable<K>, V>
                 }
             }
         }
-        else
-        {
-            vals = null;
-        }
 
         return vals;
     }
-
-
-
-    /* ========== DEBUG CODE ========== */
-
-    void dump(Node<K, V> d)
-    {
-        String txt;
-
-        System.out.println("DUMP Node " + d.key.toString());
-        if (d.parent != null)
-        {
-            txt = d.parent.key.toString();
-        }
-        else
-        {
-            txt = "null";
-        }
-        System.out.println("  p: " + txt);
-
-        if (d.less != null)
-        {
-            txt = d.less.key.toString();
-        }
-        else
-        {
-            txt = "null";
-        }
-        System.out.println("  l: " + txt);
-
-        if (d.greater != null)
-        {
-            txt = d.greater.key.toString();
-        }
-        else
-        {
-            txt = "null";
-        }
-        System.out.println("  r: " + txt);
-
-        System.out.println("  blnc: " + d.balance);
-        System.out.println();
-    }
-
-    public void near()
-    {
-        Node<K, V> c;
-        Node<K, V> p;
-
-        int level;
-        int ctr;
-
-        c = root;
-        p = null;
-
-        /* the tree can not have a height of more than 92 with
-         * (2 ^ 64 - 1) elements */
-        level = 93;
-        ctr = 1;
-
-        for (; c != null;)
-        {
-            if (p == null)
-            {
-                if (c.less != null)
-                {
-                    /* enter left subtree */
-                    c = c.less;
-                    ++ctr;
-                }
-                else
-                if (c.greater != null)
-                {
-                    /* if there is no left subtree, enter right subtree */
-                    c = c.greater;
-                    ++ctr;
-                }
-                else
-                {
-                    /* leaf, go back up */
-                    p = c;
-                    c = c.parent;
-                    if (ctr < level)
-                    {
-                        level = ctr;
-                    }
-                    --ctr;
-                }
-            }
-            else
-            {
-                if (c.less == p)
-                {
-                    if (c.greater != null)
-                    {
-                        /* enter right subtree */
-                        p = null;
-                        c = c.greater;
-                        ++ctr;
-                    }
-                    else
-                    {
-                        /* if there is no right subtree, go further up */
-                        p = c;
-                        c = c.parent;
-                        --ctr;
-                    }
-                }
-                else
-                {
-                    /* go further up */
-                    p = c;
-                    c = c.parent;
-                    --ctr;
-                }
-            }
-        }
-        if (level >= 93)
-        {
-            level = 0;
-        }
-        System.out.println("Nearest leaf: " + level);
-    }
-
-    public void far()
-    {
-        Node<K, V> c;
-        Node<K, V> p;
-
-        int level;
-        int ctr;
-
-        c = root;
-        p = null;
-
-        level = 0;
-        ctr = 1;
-
-        for (; c != null;)
-        {
-            if (p == null)
-            {
-                if (c.less != null)
-                {
-                    /* enter left subtree */
-                    c = c.less;
-                    ++ctr;
-                }
-                else
-                if (c.greater != null)
-                {
-                    /* if there is no left subtree, enter right subtree */
-                    c = c.greater;
-                    ++ctr;
-                }
-                else
-                {
-                    /* leaf, go back up */
-                    p = c;
-                    c = c.parent;
-                    if (ctr > level)
-                    {
-                        level = ctr;
-                    }
-                    --ctr;
-                }
-            }
-            else
-            {
-                if (c.less == p)
-                {
-                    if (c.greater != null)
-                    {
-                        /* enter right subtree */
-                        p = null;
-                        c = c.greater;
-                        ++ctr;
-                    }
-                    else
-                    {
-                        /* if there is no right subtree, go further up */
-                        p = c;
-                        c = c.parent;
-                        --ctr;
-                    }
-                }
-                else
-                {
-                    /* go further up */
-                    p = c;
-                    c = c.parent;
-                    --ctr;
-                }
-            }
-        }
-        System.out.println("Farthest leaf: " + level);
-    }
-
-    public void test(boolean viewBlnc)
-    {
-        Node<K, V> crt;
-        Node<K, V> p;
-
-        int debugctr;
-
-        crt = root;
-        p = null;
-
-        debugctr = 0;
-
-        System.out.print("R");
-        for (; crt != null && debugctr < 200; ++debugctr)
-        {
-            if (p == null)
-            {
-                System.out.print("{ " + crt.key.toString());
-                if (viewBlnc)
-                {
-                    System.out.print("(" + crt.balance + ") ");
-                }
-                else
-                {
-                    System.out.print(" ");
-                }
-
-                if (crt.less != null)
-                {
-                    /* enter left subtree */
-                    System.out.print("<");
-                    crt = crt.less;
-                }
-                else
-                if (crt.greater != null)
-                {
-                    /* if there is no left subtree, enter right subtree */
-                    System.out.print(">");
-                    crt = crt.greater;
-                }
-                else
-                {
-                    /* leaf, go back up */
-                    System.out.print("} ");
-                    p = crt;
-                    crt = crt.parent;
-                }
-            }
-            else
-            {
-                if (crt.less == p)
-                {
-                    if (crt.greater != null)
-                    {
-                        /* enter right subtree */
-                        System.out.print(">");
-                        p = null;
-                        crt = crt.greater;
-                    }
-                    else
-                    {
-                        /* if there is no right subtree, go further up */
-                        System.out.print("} ");
-                        p = crt;
-                        crt = crt.parent;
-                    }
-                }
-                else
-                {
-                    /* go further up */
-                    System.out.print("} ");
-                    p = crt;
-                    crt = crt.parent;
-                }
-            }
-        }
-        System.out.println();
-        System.out.flush();
-    }
-
 }
