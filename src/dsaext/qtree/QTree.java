@@ -6,7 +6,7 @@ import dsaext.MapEntry;
 /**
  * Quick balanced binary search tree
  *
- * @version 2016-03-21_001
+ * @version 2016-04-08_001
  * @author  Robert Altnoeder (r.altnoeder@gmx.net)
  *
  * Copyright (C) 2011 - 2016 Robert ALTNOEDER
@@ -444,6 +444,7 @@ final public class QTree<K extends Comparable<K>, V>
                    parentNode.key   = insNode.key;
                    parentNode.value = insNode.value;
                    parentNode = null;
+                   break;
                }
             }
 
