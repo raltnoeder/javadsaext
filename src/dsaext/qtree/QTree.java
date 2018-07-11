@@ -6,10 +6,10 @@ import dsaext.MapEntry;
 /**
  * Quick balanced binary search tree
  *
- * @version 2016-04-08_001
+ * @version 2018-07-11_001
  * @author  Robert Altnoeder (r.altnoeder@gmx.net)
  *
- * Copyright (C) 2011 - 2016 Robert ALTNOEDER
+ * Copyright (C) 2011 - 2018 Robert ALTNOEDER
  *
  * Redistribution and use in source and binary forms,
  * with or without modification, are permitted provided that
@@ -34,7 +34,7 @@ import dsaext.MapEntry;
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-final public class QTree<K extends Comparable<K>, V>
+public final class QTree<K extends Comparable<K>, V>
     implements Iterable<MapEntry<K, V>>
 {
     private Node<K, V> root;
@@ -53,21 +53,21 @@ final public class QTree<K extends Comparable<K>, V>
         size = 0;
     }
 
-    final private static class Node<K extends Comparable<K>, V>
+    private static final class Node<K extends Comparable<K>, V>
     {
         /* key and value objects */
-        protected K key;
-        protected V value;
+        K key;
+        V value;
 
         /* references to parent and child nodes */
-        protected Node<K, V> parent;
-        protected Node<K, V> less;
-        protected Node<K, V> greater;
+        Node<K, V> parent;
+        Node<K, V> less;
+        Node<K, V> greater;
 
         /* balance number */
-        protected int balance;
+        int balance;
 
-        protected Node(K keyRef, V valRef)
+        Node(K keyRef, V valRef)
         {
             key   = keyRef;
             value = valRef;
@@ -80,13 +80,25 @@ final public class QTree<K extends Comparable<K>, V>
         }
     }
 
-    final private static class QTreeEnumeration<T>
+    private static final class ItemEnumerationNode<T>
+    {
+        T value;
+        ItemEnumerationNode next;
+
+        ItemEnumerationNode(T valueRef)
+        {
+            value = valueRef;
+            next = null;
+        }
+    }
+
+    private static final class ItemEnumeration<T>
         implements java.util.Enumeration<T>
     {
-        private QTreeEnumerationNode<T> next;
-        private QTreeEnumerationNode<T> current;
+        private ItemEnumerationNode<T> next;
+        private ItemEnumerationNode<T> current;
 
-        QTreeEnumeration(QTreeEnumerationNode<T> root)
+        ItemEnumeration(ItemEnumerationNode<T> root)
         {
             next = root;
         }
@@ -101,30 +113,26 @@ final public class QTree<K extends Comparable<K>, V>
         public T nextElement()
         {
             T enumVal = null;
-
-            current = next;
-            next    = next.next;
-            if (current != null)
+            if (next != null)
             {
-                enumVal = current.enumVal;
+                enumVal = next.value;
+                next = next.next;
             }
-
             return enumVal;
         }
     }
 
-    final private class QTreeValuesIterator implements QIterator<V>
+    private static class BaseIterator<K extends Comparable<K>, V>
     {
-        private QTree<K, V> container;
-        private Node<K, V> current;
-        // saved next node
-        private Node<K, V> next;
+        QTree<K, V> container;
+        Node<K, V> next;
+        Node<K, V> current;
 
-        protected QTreeValuesIterator(QTree<K, V> containerRef)
+        BaseIterator(QTree<K, V> containerRef)
         {
             container = containerRef;
             current = null;
-            next = root;
+            next = container.root;
             if (next != null)
             {
                 while (next.less != null)
@@ -134,33 +142,34 @@ final public class QTree<K extends Comparable<K>, V>
             }
         }
 
-        @Override
-        final public long getSize()
+        BaseIterator(QTree<K, V> containerRef, Node<K, V> startNode)
         {
-            return size;
+            container = containerRef;
+            next = startNode;
         }
 
-        @Override
-        final public boolean hasNext()
+        public final long getSize()
         {
-            return (next != null);
+            return container.size;
         }
 
-        @Override
-        final public V next()
+        public final boolean hasNext()
         {
-            V value = null;
+            return next != null;
+        }
+
+        final Node<K, V> nextNode()
+        {
             current = next;
 
             if (current != null)
             {
                 if (next.greater != null)
                 {
-                    for (next = next.greater;
-                         next.less != null;
-                         next = next.less)
+                    next = next.greater;
+                    while (next.less != null)
                     {
-                        // intentional no-op block
+                        next = next.less;
                     }
                 }
                 else
@@ -179,15 +188,12 @@ final public class QTree<K extends Comparable<K>, V>
                     }
                     while (next != null);
                 }
-
-                value = current.value;
             }
 
-            return value;
+            return current;
         }
 
-        @Override
-        final public void remove()
+        public final void remove()
         {
             if (current != null)
             {
@@ -201,201 +207,248 @@ final public class QTree<K extends Comparable<K>, V>
         }
     }
 
-    final private class QTreeKeysIterator implements QIterator<K>
+    private static class BaseReverseIterator<K extends Comparable<K>, V>
     {
-        private QTree<K, V> container;
-        private Node<K, V> current;
-        // saved next node
-        private Node<K, V> next;
+        QTree<K, V> container;
+        Node<K, V> next;
+        Node<K, V> current;
 
-        protected QTreeKeysIterator(QTree<K, V> containerRef)
+        BaseReverseIterator(QTree<K, V> containerRef)
         {
             container = containerRef;
             current = null;
-            next = root;
+            next = container.root;
             if (next != null)
             {
-                while (next.less != null)
+                while (next.greater != null)
                 {
-                    next = next.less;
+                    next = next.greater;
                 }
             }
         }
 
-        @Override
-        final public long getSize()
+        BaseReverseIterator(QTree<K, V> containerRef, Node<K, V> startNode)
         {
-            return size;
+            container = containerRef;
+            next = startNode;
+        }
+
+        public final long getSize()
+        {
+            return container.size;
+        }
+
+        public final boolean hasNext()
+        {
+            return next != null;
+        }
+
+        final Node<K, V> nextNode()
+        {
+            current = next;
+
+            if (current != null)
+            {
+                if (next.less != null)
+                {
+                    next = next.less;
+                    while (next.greater != null)
+                    {
+                        next = next.greater;
+                    }
+                }
+                else
+                {
+                    do
+                    {
+                        if (next.parent != null)
+                        {
+                            if (next.parent.greater == next)
+                            {
+                                next = next.parent;
+                                break;
+                            }
+                        }
+                        next = next.parent;
+                    }
+                    while (next != null);
+                }
+            }
+
+            return current;
+        }
+
+        public final void remove()
+        {
+            if (current != null)
+            {
+                container.remove(current.key);
+                current = null;
+            }
+            else
+            {
+                throw new IllegalStateException();
+            }
+        }
+    }
+
+    private static final class ValuesIterator<K extends Comparable<K>, V>
+        extends BaseIterator<K, V> implements QIterator<V>
+    {
+        ValuesIterator(QTree<K, V> containerRef)
+        {
+            super(containerRef);
+        }
+
+        ValuesIterator(QTree<K, V> containerRef, Node startNode)
+        {
+            super(containerRef, startNode);
         }
 
         @Override
-        final public boolean hasNext()
+        public final V next()
         {
-            return (next != null);
+            V value = null;
+            Node<K, V> node = nextNode();
+            if (node != null)
+            {
+                value = node.value;
+            }
+            return value;
+        }
+    }
+
+    private static final class ValuesReverseIterator<K extends Comparable<K>, V>
+        extends BaseReverseIterator<K, V> implements QIterator<V>
+    {
+        ValuesReverseIterator(QTree<K, V> containerRef)
+        {
+            super(containerRef);
+        }
+
+        ValuesReverseIterator(QTree<K, V> containerRef, Node startNode)
+        {
+            super(containerRef, startNode);
         }
 
         @Override
-        final public K next()
+        public final V next()
+        {
+            V value = null;
+            Node<K, V> node = nextNode();
+            if (node != null)
+            {
+                value = node.value;
+            }
+            return value;
+        }
+    }
+
+    private static final class KeysIterator<K extends Comparable<K>, V>
+        extends BaseIterator<K, V> implements QIterator<K>
+    {
+        KeysIterator(QTree<K, V> containerRef)
+        {
+            super(containerRef);
+        }
+
+        KeysIterator(QTree<K, V> containerRef, Node startNode)
+        {
+            super(containerRef, startNode);
+        }
+
+        @Override
+        public final K next()
         {
             K key = null;
-            current = next;
-
-            if (current != null)
+            Node<K, V> node = nextNode();
+            if (node != null)
             {
-                if (next.greater != null)
-                {
-                    for (next = next.greater;
-                         next.less != null;
-                         next = next.less)
-                    {
-                        // intentional no-op block
-                    }
-                }
-                else
-                {
-                    do
-                    {
-                        if (next.parent != null)
-                        {
-                            if (next.parent.less == next)
-                            {
-                                next = next.parent;
-                                break;
-                            }
-                        }
-                        next = next.parent;
-                    }
-                    while (next != null);
-                }
-
-                key = current.key;
+                key = node.key;
             }
-
             return key;
         }
+    }
 
-        final public V getValue()
+    private static final class KeysReverseIterator<K extends Comparable<K>, V>
+        extends BaseReverseIterator<K, V> implements QIterator<K>
+    {
+        KeysReverseIterator(QTree<K, V> containerRef)
         {
-            V value = null;
-            if (current != null)
-            {
-                value = current.value;
-            }
-            return value;
+            super(containerRef);
+        }
+
+        KeysReverseIterator(QTree<K, V> containerRef, Node startNode)
+        {
+            super(containerRef, startNode);
         }
 
         @Override
-        final public void remove()
+        public final K next()
         {
-            if (current != null)
+            K key = null;
+            Node<K, V> node = nextNode();
+            if (node != null)
             {
-                container.remove(current.key);
-                current = null;
+                key = node.key;
             }
-            else
-            {
-                throw new IllegalStateException();
-            }
+            return key;
         }
     }
 
-    final private class QTreeEntriesIterator
-        implements QIterator<MapEntry<K, V>>
+    private static final class EntriesIterator<K extends Comparable<K>, V>
+        extends BaseIterator<K, V> implements QIterator<MapEntry<K, V>>
     {
-        private QTree<K, V> container;
-        private Node<K, V> current;
-        // saved next node
-        private Node<K, V> next;
-
-        protected QTreeEntriesIterator(QTree<K, V> containerRef)
+        EntriesIterator(QTree<K, V> containerRef)
         {
-            container = containerRef;
-            current = null;
-            next = root;
-            if (next != null)
-            {
-                while (next.less != null)
-                {
-                    next = next.less;
-                }
-            }
+            super(containerRef);
+        }
+
+        EntriesIterator(QTree<K, V> containerRef, Node<K, V> startNode)
+        {
+            super(containerRef, startNode);
         }
 
         @Override
-        final public long getSize()
+        public final MapEntry<K, V> next()
         {
-            return size;
-        }
-
-        @Override
-        final public boolean hasNext()
-        {
-            return (next != null);
-        }
-
-        @Override
-        final public MapEntry<K, V> next()
-        {
-            current = next;
-
             MapEntry<K, V> entry = null;
-
-            if (current != null)
+            Node<K, V> node = nextNode();
+            if (node != null)
             {
-                if (next.greater != null)
-                {
-                    for (next = next.greater;
-                         next.less != null;
-                         next = next.less)
-                    {
-                        // intentional no-op block
-                    }
-                }
-                else
-                {
-                    do
-                    {
-                        if (next.parent != null)
-                        {
-                            if (next.parent.less == next)
-                            {
-                                next = next.parent;
-                                break;
-                            }
-                        }
-                        next = next.parent;
-                    }
-                    while (next != null);
-                }
-
-                entry = new MapEntry(current.key, current.value);
+                entry = new MapEntry<>(node.key, node.value);
             }
-
             return entry;
         }
+    }
+
+    private static final class EntriesReverseIterator<K extends Comparable<K>, V>
+        extends BaseReverseIterator<K, V> implements QIterator<MapEntry<K, V>>
+    {
+        EntriesReverseIterator(QTree<K, V> containerRef)
+        {
+            super(containerRef);
+        }
+
+        EntriesReverseIterator(QTree<K, V> containerRef, Node<K, V> startNode)
+        {
+            super(containerRef, startNode);
+        }
 
         @Override
-        final public void remove()
+        public final MapEntry<K, V> next()
         {
-            if (current != null)
+            MapEntry<K, V> entry = null;
+            Node<K, V> node = nextNode();
+            if (node != null)
             {
-                container.remove(current.key);
-                current = null;
+                entry = new MapEntry<>(node.key, node.value);
             }
-            else
-            {
-                throw new IllegalStateException();
-            }
+            return entry;
         }
     }
 
-    final private static class QTreeEnumerationNode<T>
-    {
-        QTreeEnumerationNode<T> next = null;
-        T enumVal = null;
-    }
-
-    final public void insert(K key, V val)
+    public void insert(K key, V val)
     {
         Node<K, V> insNode = new Node<K, V>(key, val);
 
@@ -653,7 +706,7 @@ final public class QTree<K extends Comparable<K>, V>
         }
     }
 
-    final public V get(K key)
+    public V get(K key)
     {
         V value = null;
 
@@ -680,7 +733,30 @@ final public class QTree<K extends Comparable<K>, V>
         return value;
     }
 
-    final public boolean contains(K key)
+    private Node<K, V> findNode(K key)
+    {
+        Node<K, V> node = null;
+        while (node != null)
+        {
+            int cmpRc = key.compareTo(node.key);
+            if (cmpRc < 0)
+            {
+                node = node.less;
+            }
+            else
+            if (cmpRc > 0)
+            {
+                node = node.greater;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return node;
+    }
+
+    public boolean contains(K key)
     {
         boolean found = false;
 
@@ -707,7 +783,7 @@ final public class QTree<K extends Comparable<K>, V>
         return found;
     }
 
-    final public void remove(K key)
+    public void remove(K key)
     {
         Node<K, V> rotNode = null;
         Node<K, V> rmNode = root;
@@ -770,20 +846,18 @@ final public class QTree<K extends Comparable<K>, V>
                 // find replacement node
                 if (rmNode.balance == -1)
                 {
-                    for (replaceNode = rmNode.less;
-                         replaceNode.greater != null;
-                         replaceNode = replaceNode.greater)
+                    replaceNode = rmNode.less;
+                    while (replaceNode.greater != null)
                     {
-                        // intentional no-op block
+                        replaceNode = replaceNode.greater;
                     }
                 }
                 else
                 {
-                    for (replaceNode = rmNode.greater;
-                         replaceNode.less != null;
-                         replaceNode = replaceNode.less)
+                    replaceNode = rmNode.greater;
+                    while (replaceNode.less != null)
                     {
-                        // intentional no-op block
+                        replaceNode = replaceNode.less;
                     }
                 }
                 rotNode = replaceNode.parent;
@@ -1123,21 +1197,20 @@ final public class QTree<K extends Comparable<K>, V>
         }
     }
 
-    final public void clear()
+    public void clear()
     {
         root = null;
         size = 0;
     }
 
-    final public long getSize()
+    public long getSize()
     {
         return size;
     }
 
-    final public java.util.Enumeration<V> valuesEn()
+    public java.util.Enumeration<V> valuesEn()
     {
-        QTreeEnumerationNode<V> valsEnumRoot = null;
-
+        ItemEnumerationNode<V> valuesEnumRoot = null;
         if (root != null)
         {
             Node<K, V> node = root;
@@ -1145,23 +1218,20 @@ final public class QTree<K extends Comparable<K>, V>
             {
                 node = node.less;
             }
-            valsEnumRoot = new QTreeEnumerationNode();
-            valsEnumRoot.enumVal = node.value;
+            valuesEnumRoot = new ItemEnumerationNode(node.value);
 
-            QTreeEnumerationNode<V> enumNode = valsEnumRoot;
+            ItemEnumerationNode<V> enumNode = valuesEnumRoot;
             while (node != null)
             {
                 if (node.greater != null)
                 {
-                    for (node = node.greater;
-                         node.less != null;
-                         node = node.less)
+                    node = node.greater;
+                    while (node.less != null)
                     {
-                        // intentional no-op block
+                        node = node.less;
                     }
-                    enumNode.next    = new QTreeEnumerationNode();
-                    enumNode.enumVal = node.value;
-                    enumNode         = enumNode.next;
+                    enumNode.next = new ItemEnumerationNode<>(node.value);
+                    enumNode = enumNode.next;
                 }
                 else
                 {
@@ -1172,9 +1242,8 @@ final public class QTree<K extends Comparable<K>, V>
                             if (node.parent.less == node)
                             {
                                 node = node.parent;
-                                enumNode.next    = new QTreeEnumerationNode();
-                                enumNode.enumVal = node.value;
-                                enumNode         = enumNode.next;
+                                enumNode.next = new ItemEnumerationNode<>(node.value);
+                                enumNode = enumNode.next;
                                 break;
                             }
                         }
@@ -1183,46 +1252,35 @@ final public class QTree<K extends Comparable<K>, V>
                     while (node != null);
                 }
             }
-            enumNode.next = null;
-        }
-        else
-        {
-            valsEnumRoot = null;
         }
 
-        java.util.Enumeration<V> valsEnum = new QTreeEnumeration(valsEnumRoot);
-
-        return valsEnum;
+        return new ItemEnumeration(valuesEnumRoot);
     }
 
-    final public java.util.Enumeration<K> keysEn()
+    public java.util.Enumeration<K> keysEn()
     {
-        QTreeEnumerationNode<K> keysEnumRoot = null;
-
+        ItemEnumerationNode<K> valuesEnumRoot = null;
         if (root != null)
         {
             Node<K, V> node = root;
-            while (node.less != null)
+            while (node != null)
             {
                 node = node.less;
             }
-            keysEnumRoot = new QTreeEnumerationNode();
-            keysEnumRoot.enumVal = node.key;
+            valuesEnumRoot = new ItemEnumerationNode(node.key);
 
-            QTreeEnumerationNode<K> enumNode = keysEnumRoot;
+            ItemEnumerationNode<K> enumNode = valuesEnumRoot;
             while (node != null)
             {
                 if (node.greater != null)
                 {
-                    for (node = node.greater;
-                         node.less != null;
-                         node = node.less)
+                    node = node.greater;
+                    while (node.less != null)
                     {
-                        // intentional no-op block
+                        node = node.less;
                     }
-                    enumNode.next    = new QTreeEnumerationNode();
-                    enumNode.enumVal = node.key;
-                    enumNode         = enumNode.next;
+                    enumNode.next = new ItemEnumerationNode<>(node.key);
+                    enumNode = enumNode.next;
                 }
                 else
                 {
@@ -1233,9 +1291,8 @@ final public class QTree<K extends Comparable<K>, V>
                             if (node.parent.less == node)
                             {
                                 node = node.parent;
-                                enumNode.next    = new QTreeEnumerationNode();
-                                enumNode.enumVal = node.key;
-                                enumNode         = enumNode.next;
+                                enumNode.next = new ItemEnumerationNode<>(node.key);
+                                enumNode = enumNode.next;
                                 break;
                             }
                         }
@@ -1244,36 +1301,91 @@ final public class QTree<K extends Comparable<K>, V>
                     while (node != null);
                 }
             }
-            enumNode.next = null;
         }
 
-        java.util.Enumeration<K> keysEnum = new QTreeEnumeration(keysEnumRoot);
-
-        return keysEnum;
+        return new ItemEnumeration(valuesEnumRoot);
     }
 
-    final public QIterator<K> keys()
+    public QIterator<K> keys()
     {
-        return new QTreeKeysIterator(this);
+        return new KeysIterator(this);
     }
 
-    final public QIterator<V> values()
+    public QIterator<V> values()
     {
-        return new QTreeValuesIterator(this);
+        return new ValuesIterator(this);
+    }
+
+    public QIterator<K> keysReverse()
+    {
+        return new KeysReverseIterator(this);
+    }
+
+    public QIterator<V> valuesReverse()
+    {
+        return new ValuesReverseIterator(this);
+    }
+
+    public QIterator<K> keys(K key)
+    {
+        Node<K, V> startNode = findNode(key);
+        QIterator<K> iter = null;
+        if (startNode != null)
+        {
+            iter = new KeysIterator(this, startNode);
+        }
+        return iter;
+    }
+
+    public QIterator<V> values(K key)
+    {
+        Node<K, V> startNode = findNode(key);
+        QIterator<V> iter = null;
+        if (startNode != null)
+        {
+            iter = new ValuesIterator(this, startNode);
+        }
+        return iter;
+    }
+
+    public QIterator<K> keysReverse(K key)
+    {
+        Node<K, V> startNode = findNode(key);
+        QIterator<K> iter = null;
+        if (startNode != null)
+        {
+            iter = new KeysReverseIterator(this, startNode);
+        }
+        return iter;
+    }
+
+    public QIterator<V> valuesReverse(K key)
+    {
+        Node<K, V> startNode = findNode(key);
+        QIterator<V> iter = null;
+        if (startNode != null)
+        {
+            iter = new ValuesReverseIterator(this, startNode);
+        }
+        return iter;
     }
 
     @Override
-    final public QIterator<MapEntry<K, V>> iterator()
+    public QIterator<MapEntry<K, V>> iterator()
     {
-        return new QTreeEntriesIterator(this);
+        return new EntriesIterator(this);
+    }
+
+    public QIterator<MapEntry<K, V>> reverseIterator()
+    {
+        return new EntriesReverseIterator(this);
     }
 
     @SuppressWarnings("unchecked")
-    final public K[] keysArray()
+    public K[] keysArray()
     {
         K[] keys = null;
-
-        if (size <= (long) Integer.MAX_VALUE)
+        if (size <= Integer.MAX_VALUE)
         {
             keys = (K[]) new Comparable[(int) size];
 
@@ -1292,11 +1404,10 @@ final public class QTree<K extends Comparable<K>, V>
                     ++index;
                     if (node.greater != null)
                     {
-                        for (node = node.greater;
-                             node.less != null;
-                             node = node.less)
+                        node = node.greater;
+                        while (node.less != null)
                         {
-                            // intentional no-op block
+                            node = node.less;
                         }
                     }
                     else
@@ -1318,22 +1429,17 @@ final public class QTree<K extends Comparable<K>, V>
                 }
             }
         }
-        else
-        {
-            keys = null;
-        }
 
         return keys;
     }
 
     @SuppressWarnings("unchecked")
-    final public V[] valuesArray()
+    public V[] valuesArray()
     {
-        V[] vals = null;
-
-        if (size <= (long) Integer.MAX_VALUE)
+        V[] values = null;
+        if (size <= Integer.MAX_VALUE)
         {
-            vals = (V[]) new Object[(int) size];
+            values = (V[]) new Object[(int) size];
 
             if (root != null)
             {
@@ -1346,15 +1452,14 @@ final public class QTree<K extends Comparable<K>, V>
                 int index = 0;
                 while (node != null)
                 {
-                    vals[index] = node.value;
+                    values[index] = node.value;
                     ++index;
                     if (node.greater != null)
                     {
-                        for (node = node.greater;
-                             node.less != null;
-                             node = node.less)
+                        node = node.greater;
+                        while (node.less != null)
                         {
-                            // intentional no-op block
+                            node = node.less;
                         }
                     }
                     else
@@ -1377,6 +1482,6 @@ final public class QTree<K extends Comparable<K>, V>
             }
         }
 
-        return vals;
+        return values;
     }
 }

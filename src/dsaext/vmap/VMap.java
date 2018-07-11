@@ -5,10 +5,10 @@ import dsaext.MapEntry;
 /**
  * Vector map
  *
- * @version 2016-03-21_001
+ * @version 2018-07-11_001
  * @author  R. Altnoeder (r.altnoeder@gmx.net)
  *
- * Copyright (C) 2011 - 2016 Robert ALTNOEDER
+ * Copyright (C) 2011 - 2018 Robert ALTNOEDER
  *
  * Redistribution and use in source and binary forms,
  * with or without modification, are permitted provided that
@@ -33,7 +33,7 @@ import dsaext.MapEntry;
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-final public class VMap<K extends Comparable<K>, V>
+public final class VMap<K extends Comparable<K>, V>
     implements Iterable<MapEntry<K, V>>
 {
     private Node<K, V> head;
@@ -228,17 +228,15 @@ final public class VMap<K extends Comparable<K>, V>
         return new VMapEntriesIterator(this);
     }
 
-    final private class VMapKeysIterator implements java.util.Iterator<K>
+    private static final class VMapKeysIterator<K extends Comparable<K>, V> implements java.util.Iterator<K>
     {
         private VMap<K, V> container;
-        private Node<K, V> current;
         private Node<K, V> next;
 
         protected VMapKeysIterator(VMap<K, V> containerRef)
         {
             container = containerRef;
-            current = null;
-            next = head;
+            next = container.head;
         }
 
         @Override
@@ -251,11 +249,10 @@ final public class VMap<K extends Comparable<K>, V>
         public K next()
         {
             K key = null;
-            current = next;
-            if (current != null)
+            if (next != null)
             {
+                key = next.key;
                 next = next.next;
-                key = current.key;
             }
             return key;
         }
@@ -267,17 +264,15 @@ final public class VMap<K extends Comparable<K>, V>
         }
     }
 
-    final private class VMapValuesIterator implements java.util.Iterator<V>
+    private static final class VMapValuesIterator<K extends Comparable<K>, V> implements java.util.Iterator<V>
     {
         private VMap<K, V> container;
-        private Node<K, V> current;
         private Node<K, V> next;
 
         protected VMapValuesIterator(VMap<K, V> containerRef)
         {
             container = containerRef;
-            current = null;
-            next = head;
+            next = container.head;
         }
 
         @Override
@@ -290,11 +285,10 @@ final public class VMap<K extends Comparable<K>, V>
         public V next()
         {
             V value = null;
-            current = next;
-            if (current != null)
+            if (next != null)
             {
+                value = next.value;
                 next = next.next;
-                value = current.value;
             }
             return value;
         }
@@ -306,18 +300,16 @@ final public class VMap<K extends Comparable<K>, V>
         }
     }
 
-    final private class VMapEntriesIterator
+    private static final class VMapEntriesIterator<K extends Comparable<K>, V>
         implements java.util.Iterator<MapEntry<K, V>>
     {
         private VMap<K, V> container;
-        private Node<K, V> current;
         private Node<K, V> next;
 
         protected VMapEntriesIterator(VMap<K, V> containerRef)
         {
             container = containerRef;
-            current = null;
-            next = head;
+            next = container.head;
         }
 
         @Override
@@ -330,11 +322,10 @@ final public class VMap<K extends Comparable<K>, V>
         public MapEntry<K, V> next()
         {
             MapEntry<K, V> entry = null;
-            current = next;
-            if (current != null)
+            if (next != null)
             {
+                entry = new MapEntry<>(next.key, next.value);
                 next = next.next;
-                entry = new MapEntry<>(current.key, current.value);
             }
             return entry;
         }
@@ -346,7 +337,7 @@ final public class VMap<K extends Comparable<K>, V>
         }
     }
 
-    final private static class Node<K extends Comparable<K>, V>
+    private static final class Node<K extends Comparable<K>, V>
     {
         protected K          key;
         protected V          value;

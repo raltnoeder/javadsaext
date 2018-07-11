@@ -3,10 +3,10 @@ package dsaext.vlist;
 /**
  * Vector list
  *
- * @version 2016-03-21_001
+ * @version 2018-07-11_001
  * @author  R. Altnoeder (r.altnoeder@gmx.net)
  *
- * Copyright (C) 2011 - 2016 Robert ALTNOEDER
+ * Copyright (C) 2011 - 2018 Robert ALTNOEDER
  *
  * Redistribution and use in source and binary forms,
  * with or without modification, are permitted provided that
@@ -31,7 +31,7 @@ package dsaext.vlist;
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-final public class VList<V> implements Iterable<V>
+public final class VList<V> implements Iterable<V>
 {
     private int     size;
     private Node<V> head;
@@ -90,13 +90,13 @@ final public class VList<V> implements Iterable<V>
                 tail = insNode;
             }
             insNode.next = head;
-            head         = insNode;
+            head = insNode;
         }
         else
         if (index == size)
         {
             tail.next = insNode;
-            tail      = insNode;
+            tail = insNode;
         }
         else
         {
@@ -144,7 +144,7 @@ final public class VList<V> implements Iterable<V>
             }
             else
             {
-                tail          = prevNode;
+                tail = prevNode;
                 prevNode.next = null;
             }
         }
@@ -188,17 +188,15 @@ final public class VList<V> implements Iterable<V>
         return new VListIterator(this);
     }
 
-    final private class VListIterator implements java.util.Iterator<V>
+    private static final class VListIterator<V> implements java.util.Iterator<V>
     {
         private VList<V> container;
-        private Node<V> current;
         private Node<V> next;
 
         protected VListIterator(VList<V> containerRef)
         {
             container = containerRef;
-            current = null;
-            next = head;
+            next = container.head;
         }
 
         @Override
@@ -211,11 +209,10 @@ final public class VList<V> implements Iterable<V>
         public V next()
         {
             V value = null;
-            current = next;
-            if (current != null)
+            if (next != null)
             {
+                value = next.value;
                 next = next.next;
-                value = current.value;
             }
             return value;
         }

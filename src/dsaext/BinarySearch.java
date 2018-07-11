@@ -33,7 +33,12 @@ package dsaext;
  */
 final public class BinarySearch<E extends Comparable<E>>
 {
-    final public int search(E array[], E value)
+    final public int search(final E[] array, final E value)
+    {
+        return BinarySearch.<E>bsearch(array, value);
+    }
+
+    final public static <E extends Comparable<E>> int bsearch(final E[] array, final E value)
     {
         int index      = -1;
         int width      = array.length;
@@ -42,7 +47,7 @@ final public class BinarySearch<E extends Comparable<E>>
 
         while (width > 0)
         {
-            int midIndex = startIndex + (width / 2);
+            int midIndex = startIndex + (width >>> 1);
             int direction = array[midIndex].compareTo(value);
             if (direction < 0)
             {
