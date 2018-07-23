@@ -6,7 +6,7 @@ import dsaext.MapEntry;
 /**
  * Quick balanced binary search tree
  *
- * @version 2018-07-11_001
+ * @version 2018-07-18_001
  * @author  Robert Altnoeder (r.altnoeder@gmx.net)
  *
  * Copyright (C) 2011 - 2018 Robert ALTNOEDER
@@ -174,19 +174,11 @@ public final class QTree<K extends Comparable<K>, V>
                 }
                 else
                 {
-                    do
+                    while (next.parent != null && next.parent.greater == next)
                     {
-                        if (next.parent != null)
-                        {
-                            if (next.parent.less == next)
-                            {
-                                next = next.parent;
-                                break;
-                            }
-                        }
                         next = next.parent;
                     }
-                    while (next != null);
+                    next = next.parent;
                 }
             }
 
@@ -259,19 +251,11 @@ public final class QTree<K extends Comparable<K>, V>
                 }
                 else
                 {
-                    do
+                    while (next.parent != null && next.parent.less == next)
                     {
-                        if (next.parent != null)
-                        {
-                            if (next.parent.greater == next)
-                            {
-                                next = next.parent;
-                                break;
-                            }
-                        }
                         next = next.parent;
                     }
-                    while (next != null);
+                    next = next.parent;
                 }
             }
 
@@ -733,6 +717,252 @@ public final class QTree<K extends Comparable<K>, V>
         return value;
     }
 
+    public K getCeilingKey(K key)
+    {
+        K ceilingKey = null;
+        Node<K, V> node = findCeilingNode(key);
+        if (node != null)
+        {
+            ceilingKey = node.key;
+        }
+        return ceilingKey;
+    }
+
+    public K getFloorKey(K key)
+    {
+        K floorKey = null;
+        Node<K, V> node = findFloorNode(key);
+        if (node != null)
+        {
+            floorKey = node.key;
+        }
+        return floorKey;
+    }
+
+    public K getGreaterKey(K key)
+    {
+        K greaterKey = null;
+        Node<K, V> node = findGreaterNode(key);
+        if (node != null)
+        {
+            greaterKey = node.key;
+        }
+        return greaterKey;
+    }
+
+    public K getLessKey(K key)
+    {
+        K lessKey = null;
+        Node<K, V> node = findLessNode(key);
+        if (node != null)
+        {
+            lessKey = node.key;
+        }
+        return lessKey;
+    }
+
+    public V getCeilingValue(K key)
+    {
+        V ceilingValue = null;
+        Node<K, V> node = findCeilingNode(key);
+        if (node != null)
+        {
+            ceilingValue = node.value;
+        }
+        return ceilingValue;
+    }
+
+    public V getFloorValue(K key)
+    {
+        V floorValue = null;
+        Node<K, V> node = findFloorNode(key);
+        if (node != null)
+        {
+            floorValue = node.value;
+        }
+        return floorValue;
+    }
+
+    public V getGreaterValue(K key)
+    {
+        V greaterValue = null;
+        Node<K, V> node = findGreaterNode(key);
+        if (node != null)
+        {
+            greaterValue = node.value;
+        }
+        return greaterValue;
+    }
+
+    public V getLessValue(K key)
+    {
+        V lessValue = null;
+        Node<K, V> node = findLessNode(key);
+        if (node != null)
+        {
+            lessValue = node.value;
+        }
+        return lessValue;
+    }
+
+    private Node<K, V> findCeilingNode(K key)
+    {
+        Node<K, V> node = root;
+        while (node != null)
+        {
+            int cmpRc = key.compareTo(node.key);
+            if (cmpRc < 0)
+            {
+                if (node.less != null)
+                {
+                    node = node.less;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            if (cmpRc > 0)
+            {
+                if (node.greater != null)
+                {
+                    node = node.greater;
+                }
+                else
+                {
+                    while (node.parent != null && node.parent.greater == node)
+                    {
+                        node = node.parent;
+                    }
+                    node = node.parent;
+                    break;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        return node;
+    }
+
+    private Node<K, V> findFloorNode(K key)
+    {
+        Node<K, V> node = root;
+        while (node != null)
+        {
+            int cmpRc = key.compareTo(node.key);
+            if (cmpRc < 0)
+            {
+                if (node.less != null)
+                {
+                    node = node.less;
+                }
+                else
+                {
+                    while (node.parent != null && node.parent.less == node)
+                    {
+                        node = node.parent;
+                    }
+                    node = node.parent;
+                    break;
+                }
+            }
+            else
+            if (cmpRc > 0)
+            {
+                if (node.greater != null)
+                {
+                    node = node.greater;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        return node;
+    }
+
+    private Node<K, V> findGreaterNode(K key)
+    {
+        Node<K, V> node = root;
+        while (node != null)
+        {
+            int cmpRc = key.compareTo(node.key);
+            if (cmpRc < 0)
+            {
+                if (node.less != null)
+                {
+                    node = node.less;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                if (node.greater != null)
+                {
+                    node = node.greater;
+                }
+                else
+                {
+                    while (node.parent != null && node.parent.greater == node)
+                    {
+                        node = node.parent;
+                    }
+                    node = node.parent;
+                    break;
+                }
+            }
+        }
+        return node;
+    }
+
+    private Node<K, V> findLessNode(K key)
+    {
+        Node<K, V> node = root;
+        while (node != null)
+        {
+            int cmpRc = key.compareTo(node.key);
+            if (cmpRc > 0)
+            {
+                if (node.greater != null)
+                {
+                    node = node.greater;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                if (node.less != null)
+                {
+                    node = node.less;
+                }
+                else
+                {
+                    while (node.parent != null && node.parent.less == node)
+                    {
+                        node = node.parent;
+                    }
+                    node = node.parent;
+                    break;
+                }
+            }
+        }
+        return node;
+    }
+
     private Node<K, V> findNode(K key)
     {
         Node<K, V> node = null;
@@ -758,8 +988,6 @@ public final class QTree<K extends Comparable<K>, V>
 
     public boolean contains(K key)
     {
-        boolean found = false;
-
         Node<K, V> node = root;
         while (node != null)
         {
@@ -775,12 +1003,10 @@ public final class QTree<K extends Comparable<K>, V>
             }
             else
             {
-                found = true;
                 break;
             }
         }
-
-        return found;
+        return node != null;
     }
 
     public void remove(K key)
@@ -1316,12 +1542,12 @@ public final class QTree<K extends Comparable<K>, V>
         return new ValuesIterator(this);
     }
 
-    public QIterator<K> keysReverse()
+    public QIterator<K> reverseKeys()
     {
         return new KeysReverseIterator(this);
     }
 
-    public QIterator<V> valuesReverse()
+    public QIterator<V> reverseValues()
     {
         return new ValuesReverseIterator(this);
     }
@@ -1348,7 +1574,7 @@ public final class QTree<K extends Comparable<K>, V>
         return iter;
     }
 
-    public QIterator<K> keysReverse(K key)
+    public QIterator<K> reverseKeys(K key)
     {
         Node<K, V> startNode = findNode(key);
         QIterator<K> iter = null;
@@ -1359,7 +1585,7 @@ public final class QTree<K extends Comparable<K>, V>
         return iter;
     }
 
-    public QIterator<V> valuesReverse(K key)
+    public QIterator<V> reverseValues(K key)
     {
         Node<K, V> startNode = findNode(key);
         QIterator<V> iter = null;
@@ -1400,7 +1626,7 @@ public final class QTree<K extends Comparable<K>, V>
                 int index = 0;
                 while (node != null)
                 {
-                    keys[index] = node.key;
+                    keys[index] = (K) node.key;
                     ++index;
                     if (node.greater != null)
                     {
@@ -1412,19 +1638,11 @@ public final class QTree<K extends Comparable<K>, V>
                     }
                     else
                     {
-                        do
+                        while (node.parent != null && node.parent.greater == node)
                         {
-                            if (node.parent != null)
-                            {
-                                if (node.parent.less == node)
-                                {
-                                    node = node.parent;
-                                    break;
-                                }
-                            }
                             node = node.parent;
                         }
-                        while (node != null);
+                        node = node.parent;
                     }
                 }
             }
@@ -1452,7 +1670,7 @@ public final class QTree<K extends Comparable<K>, V>
                 int index = 0;
                 while (node != null)
                 {
-                    values[index] = node.value;
+                    values[index] = (V) node.value;
                     ++index;
                     if (node.greater != null)
                     {
@@ -1464,19 +1682,99 @@ public final class QTree<K extends Comparable<K>, V>
                     }
                     else
                     {
-                        do
+                        while (node.parent != null && node.parent.greater == node)
                         {
-                            if (node.parent != null)
-                            {
-                                if (node.parent.less == node)
-                                {
-                                    node = node.parent;
-                                    break;
-                                }
-                            }
                             node = node.parent;
                         }
-                        while (node != null);
+                        node = node.parent;
+                    }
+                }
+            }
+        }
+
+        return values;
+    }
+
+    @SuppressWarnings("unchecked")
+    public K[] reverseKeysArray()
+    {
+        K[] keys = null;
+        if (size <= Integer.MAX_VALUE)
+        {
+            keys = (K[]) new Comparable[(int) size];
+
+            if (root != null)
+            {
+                Node<K, V> node = root;
+                while (node.greater != null)
+                {
+                    node = node.greater;
+                }
+
+                int index = 0;
+                while (node != null)
+                {
+                    keys[index] = (K) node.key;
+                    ++index;
+                    if (node.less != null)
+                    {
+                        node = node.less;
+                        while (node.greater != null)
+                        {
+                            node = node.greater;
+                        }
+                    }
+                    else
+                    {
+                        while (node.parent != null && node.parent.less == node)
+                        {
+                            node = node.parent;
+                        }
+                        node = node.parent;
+                    }
+                }
+            }
+        }
+
+        return keys;
+    }
+
+    @SuppressWarnings("unchecked")
+    public V[] reverseValuesArray()
+    {
+        V[] values = null;
+        if (size <= Integer.MAX_VALUE)
+        {
+            values = (V[]) new Object[(int) size];
+
+            if (root != null)
+            {
+                Node<K, V> node = root;
+                while (node.greater != null)
+                {
+                    node = node.greater;
+                }
+
+                int index = 0;
+                while (node != null)
+                {
+                    values[index] = (V) node.value;
+                    ++index;
+                    if (node.less != null)
+                    {
+                        node = node.less;
+                        while (node.greater != null)
+                        {
+                            node = node.greater;
+                        }
+                    }
+                    else
+                    {
+                        while (node.parent != null && node.parent.less == node)
+                        {
+                            node = node.parent;
+                        }
+                        node = node.parent;
                     }
                 }
             }
