@@ -6,7 +6,7 @@ import dsaext.MapEntry;
 /**
  * Quick balanced binary search tree
  *
- * @version 2018-07-18_001
+ * @version 2018-07-25_001
  * @author  Robert Altnoeder (r.altnoeder@gmx.net)
  *
  * Copyright (C) 2011 - 2018 Robert ALTNOEDER
@@ -717,6 +717,50 @@ public final class QTree<K extends Comparable<K>, V>
         return value;
     }
 
+    public K getFirstKey()
+    {
+        K firstKey = null;
+        Node<K, V> node = findFirstNode();
+        if (node != null)
+        {
+            firstKey = node.key;
+        }
+        return firstKey;
+    }
+
+    public K getLastKey()
+    {
+        K lastKey = null;
+        Node<K, V> node = findLastNode();
+        if (node != null)
+        {
+            lastKey = node.key;
+        }
+        return lastKey;
+    }
+
+    public V getFirstValue()
+    {
+        V firstValue = null;
+        Node<K, V> node = findFirstNode();
+        if (node != null)
+        {
+            firstValue = node.value;
+        }
+        return firstValue;
+    }
+
+    public V getLastValue()
+    {
+        V lastValue = null;
+        Node<K, V> node = findLastNode();
+        if (node != null)
+        {
+            lastValue = node.value;
+        }
+        return lastValue;
+    }
+
     public K getCeilingKey(K key)
     {
         K ceilingKey = null;
@@ -981,6 +1025,32 @@ public final class QTree<K extends Comparable<K>, V>
             else
             {
                 break;
+            }
+        }
+        return node;
+    }
+
+    private Node<K, V> findFirstNode()
+    {
+        Node<K, V> node = root;
+        if (node != null)
+        {
+            while (node.less != null)
+            {
+                node = node.less;
+            }
+        }
+        return node;
+    }
+
+    private Node<K, V> findLastNode()
+    {
+        Node<K, V> node = root;
+        if (node != null)
+        {
+            while (node.greater != null)
+            {
+                node = node.greater;
             }
         }
         return node;
