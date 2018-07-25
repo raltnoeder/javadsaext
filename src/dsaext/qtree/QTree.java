@@ -2,6 +2,7 @@ package dsaext.qtree;
 
 import dsaext.QIterator;
 import dsaext.MapEntry;
+import java.lang.reflect.Array;
 
 /**
  * Quick balanced binary search tree
@@ -1678,12 +1679,19 @@ public final class QTree<K extends Comparable<K>, V>
     }
 
     @SuppressWarnings("unchecked")
-    public K[] keysArray()
+    public K[] keysArray(K[] dstArray)
     {
         K[] keys = null;
         if (size <= Integer.MAX_VALUE)
         {
-            keys = (K[]) new Comparable[(int) size];
+            if (size <= dstArray.length)
+            {
+                keys = dstArray;
+            }
+            else
+            {
+                keys = (K[]) Array.newInstance(dstArray.getClass().getComponentType(), (int) size);
+            }
 
             if (root != null)
             {
@@ -1722,12 +1730,19 @@ public final class QTree<K extends Comparable<K>, V>
     }
 
     @SuppressWarnings("unchecked")
-    public V[] valuesArray()
+    public V[] valuesArray(V[] dstArray)
     {
         V[] values = null;
         if (size <= Integer.MAX_VALUE)
         {
-            values = (V[]) new Object[(int) size];
+            if (size <= dstArray.length)
+            {
+                values = dstArray;
+            }
+            else
+            {
+                values = (V[]) Array.newInstance(dstArray.getClass().getComponentType(), (int) size);
+            }
 
             if (root != null)
             {
@@ -1766,12 +1781,19 @@ public final class QTree<K extends Comparable<K>, V>
     }
 
     @SuppressWarnings("unchecked")
-    public K[] reverseKeysArray()
+    public K[] reverseKeysArray(K[] dstArray)
     {
         K[] keys = null;
         if (size <= Integer.MAX_VALUE)
         {
-            keys = (K[]) new Comparable[(int) size];
+            if (size <= dstArray.length)
+            {
+                keys = dstArray;
+            }
+            else
+            {
+                keys = (K[]) Array.newInstance(dstArray.getClass().getComponentType(), (int) size);
+            }
 
             if (root != null)
             {
@@ -1810,12 +1832,19 @@ public final class QTree<K extends Comparable<K>, V>
     }
 
     @SuppressWarnings("unchecked")
-    public V[] reverseValuesArray()
+    public V[] reverseValuesArray(V[] dstArray)
     {
         V[] values = null;
         if (size <= Integer.MAX_VALUE)
         {
-            values = (V[]) new Object[(int) size];
+            if (size <= dstArray.length)
+            {
+                values = dstArray;
+            }
+            else
+            {
+                values = (V[]) Array.newInstance(dstArray.getClass().getComponentType(), (int) size);
+            }
 
             if (root != null)
             {
